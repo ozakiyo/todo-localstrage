@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>タスク管理アプリ（SQLite3対応）</title>
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f5f7fa;
+      padding: 30px;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      color: #2b6cb0;
+    }
+    .input-area, .filter-area {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    input, select, button, textarea {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    button {
+      background: #2b6cb0;
+      color: white;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    button:hover {
+      background: #1a4f8a;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      background: white;
+      margin-bottom: 8px;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    li.completed {
+      opacity: 0.6;
+      text-decoration: line-through;
+    }
+    li.overdue {
+      border-left: 5px solid red;
+    }
+    li.due-today {
+      border-left: 5px solid orange;
+    }
+    .high { border-left: 5px solid red; }
+    .medium { border-left: 5px solid orange; }
+    .low { border-left: 5px solid green; }
+
+    .task-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: space-between;
+    }
+    .task-info {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+    .task-actions button {
+      margin-right: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>タスク管理アプリ（SQLite3対応）</h1>
+
+  <div class="input-area">
+    <input id="taskInput" placeholder="タスク名" />
+    <textarea id="descInput" placeholder="詳細" rows="1"></textarea>
+    <input type="date" id="dueDateInput" />
+    <select id="prioritySelector">
+      <option value="medium">普通</option>
+      <option value="high">高</option>
+      <option value="low">低</option>
+    </select>
+    <select id="categorySelector"></select>
+    <button id="addBtn">追加</button>
+  </div>
+
+  <div class="filter-area">
+    <input id="searchInput" placeholder="検索" />
+    <button id="searchClearBtn">クリア</button>
+    <select id="filterStatus">
+      <option value="all">全て</option>
+      <option value="completed">完了</option>
+      <option value="incomplete">未完了</option>
+    </select>
+    <select id="filterPriority">
+      <option value="all">全優先度</option>
+      <option value="high">高</option>
+      <option value="medium">普通</option>
+      <option value="low">低</option>
+    </select>
+    <select id="filterCategory">
+      <option value="all">全カテゴリ</option>
+    </select>
+    <select id="sortSelector">
+      <option value="created">作成日</option>
+      <option value="dueDate">期限日</option>
+      <option value="priority">優先度</option>
+    </select>
+  </div>
+
+  <div class="input-area">
+    <input id="newCategoryInput" placeholder="新カテゴリ名" />
+    <button id="addCategoryBtn">カテゴリ追加</button>
+    <select id="deleteCategorySelector"></select>
+    <button id="deleteCategoryBtn">カテゴリ削除</button>
+  </div>
+
+  <ul id="taskList"></ul>
+
+  <script>
+    const taskInput = document.getElementById("taskInput");
+    const descInput = document.getElementById("descInput");
+    const addBtn = document.getElementById("addBtn");
+    const taskList = document.getElementById("taskList");
+    const prioritySelector = document.getElementById("prioritySelector");
+    const dueDateInput = document.getElementById("dueDateInput");
+    const categorySelector = document.getElementById("categorySelector");
+    const newCategoryInput = document.getElementById("newCategoryInput");
+    const addCategoryBtn = document.getElementById("addCategoryBtn");
+    const deleteCategorySelector = document.getElementById("deleteCategorySelector");
+    const deleteCategoryBtn = document.getElementById("deleteCategoryBtn");
+    const searchInput = document.getElementById("searchInput");
+    const searchClearBtn = document.getElementById("searchClearBtn");
+    const filterStatus = document.getElementById("filterStatus");
+    const filterPriority = document.getElementById("filterPriority");
+    const filterCategory = document.getElementById("filterCategory");
+    const sortSelector = document.getElementById("sortSelector");
+
+    let data = [];
+    let categories = [];
+    let editId = null;
+
+    //------------------ API呼び出し ------------------//
+    async function fetchTasks() {
+      const res = await fetch("/api/tasks");
+      data = await res.json();
+      renderTasks();
+    }
+
+    async function fetchCategories() {
+      const res = await fetch("/api/categories");
+      const cats = await res.json();
+      categories = cats.map(c => c.name);
+      renderCategories();
+    }
+
+    async function addTask(task) {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(task)
+      });
+      await fetchTasks();
+    }
+
+    async function updateTask(id, task) {
+      await fetch(`/api/tasks/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(task)
+      });
+      await fetchTasks();
+    }
+
+    async function deleteTaskAPI(id) {
+      await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+      await fetchTasks();
+    }
+
+    async function addCategoryAPI(name) {
+      await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name })
+      });
+      await fetchCategories();
+    }
+
+    async function deleteCategoryAPI(name) {
+      await fetch(`/api/categories/${name}`, { method: "DELETE" });
+      await fetchCategories();
+      await fetchTasks();
+    }
+
+    //------------------ レンダリング ------------------//
+    function renderCategories() {
+      categorySelector.innerHTML = "";
+      filterCategory.innerHTML = '<option value="all">全カテゴリ</option>';
+      deleteCategorySelector.innerHTML = "";
+      categories.forEach(cat => {
+        const o1 = new Option(cat, cat);
+        const o2 = new Option(cat, cat);
+        const o3 = new Option(cat, cat);
+        categorySelector.add(o1);
+        filterCategory.add(o2);
+        deleteCategorySelector.add(o3);
+      });
+      if (categories.length > 0) categorySelector.value = categories[0];
+    }
+
+    function renderTasks() {
+      taskList.innerHTML = "";
+      const today = new Date().toISOString().slice(0,10);
+      const keyword = searchInput.value.trim().toLowerCase();
+
+      let sorted = [...data];
+      const sortType = sortSelector.value;
+      if (sortType === "created") sorted.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+      else if (sortType === "dueDate") sorted.sort((a,b)=>(a.dueDate||"9999").localeCompare(b.dueDate||"9999"));
+      else if (sortType === "priority") {
+        const order = {high:1,medium:2,low:3};
+        sorted.sort((a,b)=>order[a.priority]-order[b.priority]);
+      }
+
+      sorted.forEach(task => {
+        if (keyword && !task.text.toLowerCase().includes(keyword)) return;
+        if (filterStatus.value==="completed" && !task.completed) return;
+        if (filterStatus.value==="incomplete" && task.completed) return;
+        if (filterPriority.value!=="all" && task.priority!==filterPriority.value) return;
+        if (filterCategory.value!=="all" && task.category!==filterCategory.value) return;
+
+        const li = document.createElement("li");
+        li.classList.add(task.priority);
+        if (task.completed) li.classList.add("completed");
+        if (task.dueDate) {
+          if (task.dueDate < today) li.classList.add("overdue");
+          else if (task.dueDate === today) li.classList.add("due-today");
+        }
+
+        const header = document.createElement("div");
+        header.className = "task-header";
+
+        const left = document.createElement("div");
+        const cb = document.createElement("input");
+        cb.type = "checkbox"; cb.checked = task.completed;
+        cb.addEventListener("change",()=>toggleTask(task.id, cb.checked));
+        const span = document.createElement("span");
+        span.textContent = task.text;
+        left.appendChild(cb); left.appendChild(span);
+
+        const actions = document.createElement("div");
+        actions.className = "task-actions";
+        const ebtn = document.createElement("button");
+        ebtn.textContent = "編集";
+        ebtn.onclick = ()=>editTask(task);
+        const dbtn = document.createElement("button");
+        dbtn.textContent = "削除";
+        dbtn.onclick = ()=>deleteTaskAPI(task.id);
+        actions.append(ebtn, dbtn);
+
+        header.append(left, actions);
+        li.appendChild(header);
+
+        const info = document.createElement("div");
+        info.className = "task-info";
+        info.innerHTML = `
+          ${task.description || ""}<br>
+          カテゴリ: ${task.category || "未分類"}　
+          期限: ${task.dueDate || "なし"}
+        `;
+        li.appendChild(info);
+
+        taskList.appendChild(li);
+      });
+    }
+
+    //------------------ イベント ------------------//
+    addBtn.onclick = ()=>{
+      const task = {
+        text: taskInput.value.trim(),
+        description: descInput.value.trim(),
+        dueDate: dueDateInput.value,
+        priority: prioritySelector.value,
+        category: categorySelector.value,
+        completed: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: null
+      };
+      if (!task.text) return;
+      if (editId) {
+        updateTask(editId, task);
+        editId = null;
+      } else {
+        addTask(task);
+      }
+      taskInput.value = "";
+      descInput.value = "";
+      dueDateInput.value = "";
+    };
+
+    addCategoryBtn.onclick = ()=>{
+      const name = newCategoryInput.value.trim();
+      if (!name || categories.includes(name)) return;
+      addCategoryAPI(name);
+      newCategoryInput.value = "";
+    };
+
+    deleteCategoryBtn.onclick = ()=>{
+      const name = deleteCategorySelector.value;
+      if (name) deleteCategoryAPI(name);
+    };
+
+    searchInput.oninput = renderTasks;
+    searchClearBtn.onclick = ()=>{ searchInput.value=""; renderTasks(); };
+    filterStatus.onchange = renderTasks;
+    filterPriority.onchange = renderTasks;
+    filterCategory.onchange = renderTasks;
+    sortSelector.onchange = renderTasks;
+
+    function toggleTask(id, completed) {
+      const t = data.find(d=>d.id===id);
+      if (!t) return;
+      t.completed = completed;
+      updateTask(id, t);
+    }
+
+    function editTask(task) {
+      editId = task.id;
+      taskInput.value = task.text;
+      descInput.value = task.description || "";
+      dueDateInput.value = task.dueDate || "";
+      prioritySelector.value = task.priority;
+      categorySelector.value = task.category;
+    }
+
+    fetchCategories();
+    fetchTasks();
+  </script>
+</body>
+</html>
+
+
+
+
+

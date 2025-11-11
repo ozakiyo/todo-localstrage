@@ -1,0 +1,122 @@
+<!--
+概要
+LocalStorageを活用したタスク管理アプリケーションを 開発してください。
+
+必須要件
+1. 基本機能
+ タスクの追加、編集、削除
+ タスクの完了/未完了の切り替え
+ すべてのデータをLocalStorageに永続化
+ OK
+
+2. 高度な機能
+ 優先度設定（高・中・低）と色分け表示
+ 期限設定と期限切れの視覚的な表示
+ カテゴリ分け（仕事、プライベート、勉強など、自由に追加可能）
+ 検索機能（タスク名での部分一致検索）
+ フィルター機能
+完了/未完了での絞り込み
+優先度での絞り込み
+カテゴリでの絞り込み
+ ソート機能
+作成日時順
+期限順
+優先度順
+3. データ構造
+各タスクは最低限以下の情報を持つこと：
+
+javascript
+
+{
+  id: number,           // 一意のID
+  title: string,        // タスク名
+  description: string,  // 詳細説明（任意）
+  priority: string,     // 'high' | 'medium' | 'low'
+  category: string,     // カテゴリ名
+  dueDate: string,      // 期限(日付)
+  completed: boolean,   // 完了状態
+  createdAt: string,    // 作成日時
+  updatedAt: string     // 更新日時
+}
+
+ヒント
+LocalStorageの基本操作
+javascript
+
+// 保存
+localStorage.setItem('key', JSON.stringify(data));
+
+// 読み込み
+const data = JSON.parse(localStorage.getItem('key'));
+
+// 削除
+localStorage.removeItem('key');
+
+// すべて削除
+localStorage.clear();
+データ構造の設計例
+javascript
+
+// 全体のデータ構造
+{
+  tasks: [...],           // タスクの配列
+  categories: [...],      // カテゴリの配列
+  settings: {...}         // 設定情報
+}
+期限切れの判定
+javascript
+
+const isOverdue = new Date(task.dueDate) < new Date();
+フィルタリングの実装例
+javascript
+
+const filtered = tasks.filter(task => {
+  // 複数条件での絞り込み
+  return (
+    task.completed === filterCompleted &&
+    task.priority === filterPriority &&
+    task.category === filterCategory
+  );
+});
+
+デザインが整わない。コードの全て見直しから
+
+
+-->
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8">
+    <title>タスク管理アプリ</title>
+    <style>
+      body { background-color:#f5f6fa; font-family:sans-serif; }
+      header { background:#007bff; color:#fff; padding:10px; }
+      .container { padding:20px; }
+      .section-title { margin-top:20px; }
+    </style>
+  </head>
+  <body>
+    <header>タスク管理アプリ</header>
+    <div class="container">
+      <!-- タスク追加部分はそのまま -->
+      <input type="text" id="taskInput" placeholder="タスク入力">
+      <input type="text" id="descInput" placeholder="詳細説明(任意)">
+      <input type="date" id="dueDateinput">
+      <select id="prioritySelector">
+        <option value="high">高</option>
+        <option value="medium">中</option>
+        <option value="low">低</option>
+      </select>
+      <select id="categorySelector"></select>
+      <button id="addBtn">追加</button>
+
+      <ul id="taskList"></ul>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
+
+
+
+
