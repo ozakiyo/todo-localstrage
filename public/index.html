@@ -78,53 +78,61 @@
   </style>
 </head>
 <body>
-  <h1>タスク管理アプリ（SQLite3対応）</h1>
+  <header>タスク管理アプリ（SQLite3対応）</header>
+  <div class="container">
 
-  <div class="input-area">
-    <input id="taskInput" placeholder="タスク名" />
-    <textarea id="descInput" placeholder="詳細" rows="1"></textarea>
-    <input type="date" id="dueDateInput" />
-    <select id="prioritySelector">
-      <option value="medium">普通</option>
-      <option value="high">高</option>
-      <option value="low">低</option>
-    </select>
-    <select id="categorySelector"></select>
-    <button id="addBtn">追加</button>
+    <h2 class="section-title">追加タスク入力</h2>
+      <div class="input-area">
+        <input id="taskInput" placeholder="タスク名" />
+        <textarea id="descInput" placeholder="詳細" rows="1"></textarea>
+        <input type="date" id="dueDateInput" />
+        <select id="prioritySelector">
+          <option value="medium">普通</option>
+          <option value="high">高</option>
+          <option value="low">低</option>
+        </select>
+        <select id="categorySelector"></select>
+        <button id="addBtn">追加</button>
+      </div>
+
+    <h2 class="section-title">カテゴリ管理</h2>
+
+    <div class="input-area">
+      <input id="newCategoryInput" placeholder="新カテゴリ名" />
+      <button id="addCategoryBtn">カテゴリ追加</button>
+      <select id="deleteCategorySelector"></select>
+      <button id="deleteCategoryBtn">カテゴリ削除</button>
+    </div>
+    
+
+    
+      <div class="filter-area">
+        <input id="searchInput" placeholder="検索" />
+        <button id="searchClearBtn">クリア</button>
+        <select id="filterStatus">
+          <option value="all">全て</option>
+          <option value="completed">完了</option>
+          <option value="incomplete">未完了</option>
+        </select>
+        <select id="filterPriority">
+          <option value="all">全優先度</option>
+          <option value="high">高</option>
+          <option value="medium">普通</option>
+          <option value="low">低</option>
+        </select>
+        <select id="filterCategory">
+          <option value="all">全カテゴリ</option>
+        </select>
+        <select id="sortSelector">
+          <option value="created">作成日</option>
+          <option value="dueDate">期限日</option>
+          <option value="priority">優先度</option>
+        </select>
+      </div>
+
+
+    <ul id="taskList"></ul>
   </div>
-
-  <div class="filter-area">
-    <input id="searchInput" placeholder="検索" />
-    <button id="searchClearBtn">クリア</button>
-    <select id="filterStatus">
-      <option value="all">全て</option>
-      <option value="completed">完了</option>
-      <option value="incomplete">未完了</option>
-    </select>
-    <select id="filterPriority">
-      <option value="all">全優先度</option>
-      <option value="high">高</option>
-      <option value="medium">普通</option>
-      <option value="low">低</option>
-    </select>
-    <select id="filterCategory">
-      <option value="all">全カテゴリ</option>
-    </select>
-    <select id="sortSelector">
-      <option value="created">作成日</option>
-      <option value="dueDate">期限日</option>
-      <option value="priority">優先度</option>
-    </select>
-  </div>
-
-  <div class="input-area">
-    <input id="newCategoryInput" placeholder="新カテゴリ名" />
-    <button id="addCategoryBtn">カテゴリ追加</button>
-    <select id="deleteCategorySelector"></select>
-    <button id="deleteCategoryBtn">カテゴリ削除</button>
-  </div>
-
-  <ul id="taskList"></ul>
 
   <script>
     const taskInput = document.getElementById("taskInput");
