@@ -1,0 +1,15 @@
+version: "3"
+services:
+  task_app:
+    build: .
+    ports:
+      - "80:3001"
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+      - ./data:/usr/src/app/data   # ← DBを保存する専用フォルダ
+    environment:
+      - NODE_ENV=development
+
+
+
