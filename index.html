@@ -1,888 +1,1784 @@
-<!--
-概要
-LocalStorageを活用したタスク管理アプリケーションを 開発してください。
-
-必須要件
-1. 基本機能
- タスクの追加、編集、削除
- タスクの完了/未完了の切り替え
- すべてのデータをLocalStorageに永続化
- OK
-
-2. 高度な機能
- 優先度設定（高・中・低）と色分け表示
- 期限設定と期限切れの視覚的な表示
- カテゴリ分け（仕事、プライベート、勉強など、自由に追加可能）
- 検索機能（タスク名での部分一致検索）
- フィルター機能
-完了/未完了での絞り込み
-優先度での絞り込み
-カテゴリでの絞り込み
- ソート機能
-作成日時順
-期限順
-優先度順
-3. データ構造
-各タスクは最低限以下の情報を持つこと：
-
-javascript
-
-{
-  id: number,           // 一意のID
-  title: string,        // タスク名
-  description: string,  // 詳細説明（任意）
-  priority: string,     // 'high' | 'medium' | 'low'
-  category: string,     // カテゴリ名
-  dueDate: string,      // 期限(日付)
-  completed: boolean,   // 完了状態
-  createdAt: string,    // 作成日時
-  updatedAt: string     // 更新日時
-}
-
-ヒント
-LocalStorageの基本操作
-javascript
-
-// 保存
-localStorage.setItem('key', JSON.stringify(data));
-
-// 読み込み
-const data = JSON.parse(localStorage.getItem('key'));
-
-// 削除
-localStorage.removeItem('key');
-
-// すべて削除
-localStorage.clear();
-データ構造の設計例
-javascript
-
-// 全体のデータ構造
-{
-  tasks: [...],           // タスクの配列
-  categories: [...],      // カテゴリの配列
-  settings: {...}         // 設定情報
-}
-期限切れの判定
-javascript
-
-const isOverdue = new Date(task.dueDate) < new Date();
-フィルタリングの実装例
-javascript
-
-const filtered = tasks.filter(task => {
-  // 複数条件での絞り込み
-  return (
-    task.completed === filterCompleted &&
-    task.priority === filterPriority &&
-    task.category === filterCategory
-  );
-});
-
-デザインが整わない。コードの全て見直しから
-
-
--->
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8">
-<title>LocalStorageを活用したタスク管理アプリケーション</title>
-<style>
-  body{
-    background-color: #f5f6fa;
-    padding:0;
-    margin:0;
-  }
-  header{
-    background-color: #007bff;
-    color:white;
-    padding:20px 0;
-    text-align:center;
-    font-size:1.6em;
-    box-shadow:0 3px 8px rgba(0,0,0,0.15);
-    font-weight:600;
-    letter-spacing:1px;
-  }
-  nav{
-    background-color:#FFF;
-    display:flex;
-    justify-content: center;
-    gap:10px;
-    padding:10px 0;
-    box-shadow:0 2px 6px rgba(0,0,0,0.08);
-    position: sticky;
-    top:0;
-    z-index:100;
-  }
-  nav button{
-    background-color:transparent;
-    border:none;
-    color:#333;
-    padding:8px 18px;
-    font-size:15px;
-    cursor:pointer;
-    border-radius:25px;
-    transition:all 0.2s ease;
-  }
-  nav button.active, nav button:hover{
-    background-color: #007bff;
-    color:#FFF;
-    box-shadow:0 2px 6px rgba(0,123,255,0.3);
-  }
-
-  .container{
-    max-width:700px;
-    background:#FFF;
-    padding:25px 30px;
-    border-radius:15px;
-    margin:30px auto;
-    box-shadow:0 5px 15px rgba(0,0,0,0.1);
-  }
-  h1{
-    text-align:center;
-    color:#333;
-    margin-bottom:20px;
-  }
-
-  .input-area,
-  .search-area,
-  .filter-area,
-  .sort-area,
-  .category-area,
-  .category-delete-area{
-    display:flex;
-    flex-wrap:wrap;
-    align-items:center;
-    gap:10px;
-    margin-bottom:25px;
-    margin-top:5px;
-  }
-  input[type="text"],
-  input[type="date"],
-  select{
-    flex:1;
-    padding:8px 10px;
-    border:1px solid #CCC;
-    border-radius:8px;
-    font-size:14px;
-    transition:border-color 0.2s;
-  }
-  input:focus,
-  select:focus{
-    outline:none;
-    border-color:#007bff;
-    box-shadow:0 0 4px rgba(0,123,255,0.3);
-  }
-
-  button{
-    padding:8px 14px;
-    border:none;
-    border-radius:6px;
-    cursor:pointer;
-    background-color: #007bff;
-    color:white;
-    font-size:14px;
-    transition:background 0.2s,transform 0.1s;
-  }
-  button:hover{
-    background-color:#0056b3;
-    transform:translateY(-1px);
-  }
-  ul{
-    list-style:none;
-    padding:0;
-    margin:0;
-  }
-  li{
-    background:white;
-    margin-bottom:12px;
-    padding:14px 16px;
-    border-radius:10px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-    display:flex;
-    flex-direction: column;
-    gap:5px;
-    transition:transform 0.2s,box-shadow 0.2s;
-  }
-  li:hover{
-    transform:translateY(-3px);
-    box-shadow:0 3px 8px rgba(0,0,0,0.12);
-  }
-  .task-main-row{
-    display:flex;
-    align-items:center;
-    gap:6px;
-    justify-content: space-between;
-    flex-wrap:wrap;
-    gap:6px;
-  }
-  .task-buttons button{
-    padding:5px 8px;
-    font-size:12px;
-    border-radius:4px;
-    background-color: #6c757d;
-  }
-  .task-buttons button:hover{
-    background-color: #495057;;
-  }
-
-  li.completed span{
-    text-decoration:line-through;
-    color:#aaa;
-  }
-  /*期限関連のスタイル*/
-  .due-date{
-    font-size:12px;
-    color:#555;
-  }
-  /*優先度色分け表示*/
-  .high{
-    border-left:8px solid #e74c3c;
-  }
-  .medium{
-    border-left:8px solid #f39c12;
-  }
-  .low{
-    border-left:8px solid #27ae60;
-  }
-
-/* ===============================
-   期限状態
-=============================== */
-  .overdue{
-    background-color:#fff0f0;
-  }
-  .due-today{
-    background-color:#fffbe6;
-  }
-
-/* ===============================
-   カテゴリバッジ
-=============================== */
-.category-badge{
-  background-color: #eef1f5;
-  border-radius:12px;
-  padding:3px 8px;
-  font-size:12px;
-  color:#333;
-  font-weight:500;
-}
-
-/* ===============================
-   編集モード
-=============================== */
-  .task-buttons button{
-    margin-left:5px;
-    font-size:12px;
-    padding:5px 10px;
-  }
-  .edit-input{
-    flex:1;
-    margin-right:10px;
-    padding:8px;
-    border:1px solid #ccc;
-    border-radious:5px;
-  }
-/* ===============================
-   セクション見出しデザイン
-=============================== */
-.section-title{
-  font-size:1.1em;
-  font-weight:600;
-  color:#007bff;
-  margin:25px 0 10px;
-  padding-left:10px;
-  border-left:4px solid #007bff;
-  background-color: #f0f8ff;
-  border-radius:6px;
-  padding:6px 10px;
-  letter-spacing:0.5px;
-}
-  
-/* ===============================
-   レスポンシブ対応
-=============================== */
-  @media(max-width:600px){
-    nav{
-      flex-wrap:wrap;
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4年後の独立に向けた準備ワークベンチ</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f7fb;
+      --surface: #ffffff;
+      --surface-soft: #f8fbff;
+      --text: #18212f;
+      --muted: #5f6b7a;
+      --border: #d8e2ee;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --success: #0f766e;
+      --warning: #b45309;
+      --danger: #b91c1c;
+      --shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+      --radius: 18px;
     }
-    .input-area,
-    .filter-area,
-    .sort-area,
-    .category-area,
-    .category-delete-area{
-      flex-direction:column;
-      align-items:stretch;
-    }
-    button{
-      width:100%;
-    }
-  }
 
-</style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 24%),
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 18%),
+        var(--bg);
+      line-height: 1.6;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .hero {
+      padding: 56px 20px 24px;
+    }
+
+    .hero-inner,
+    .layout,
+    .top-nav {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .hero-card {
+      background: linear-gradient(135deg, #0f172a, #1d4ed8 58%, #0f766e);
+      color: #fff;
+      border-radius: 28px;
+      padding: 36px;
+      box-shadow: var(--shadow);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      font-size: 13px;
+      letter-spacing: 0.03em;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0 0 12px;
+      line-height: 1.25;
+    }
+
+    h1 {
+      margin-top: 18px;
+      font-size: clamp(2rem, 4vw, 3rem);
+    }
+
+    .hero-copy {
+      max-width: 760px;
+      color: rgba(255, 255, 255, 0.88);
+      margin-bottom: 0;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-top: 28px;
+    }
+
+    .hero-stat {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 18px;
+      padding: 16px;
+    }
+
+    .hero-stat strong {
+      display: block;
+      font-size: 24px;
+      margin-top: 6px;
+    }
+
+    .top-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 auto 24px;
+      position: sticky;
+      top: 14px;
+      z-index: 10;
+    }
+
+    .top-nav a {
+      text-decoration: none;
+      padding: 11px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(216, 226, 238, 0.9);
+      backdrop-filter: blur(10px);
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+    }
+
+    .layout {
+      display: grid;
+      gap: 22px;
+      padding-bottom: 56px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+
+    .panel-header p,
+    .muted {
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .summary-grid,
+    .grid-2,
+    .grid-3,
+    .package-grid,
+    .module-grid,
+    .case-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .summary-grid {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      margin-bottom: 20px;
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+
+    .grid-3,
+    .module-grid,
+    .package-grid,
+    .case-grid {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .metric-card,
+    .subcard,
+    .candidate-card,
+    .project-card,
+    .package-card,
+    .case-card,
+    .template-box,
+    .risk-card {
+      background: var(--surface-soft);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+    }
+
+    .metric-card .label,
+    .small-label {
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .metric-card strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 1.7rem;
+    }
+
+    .toolbar,
+    .button-row,
+    .inline-fields,
+    .checklist {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+
+    textarea {
+      min-height: 112px;
+      resize: vertical;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      outline: 2px solid rgba(37, 99, 235, 0.18);
+      border-color: var(--accent);
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 11px 16px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      transition: transform 0.16s ease, opacity 0.16s ease, box-shadow 0.16s ease;
+      box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      opacity: 0.95;
+    }
+
+    button.secondary {
+      background: #0f172a;
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.16);
+    }
+
+    button.ghost {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+      box-shadow: none;
+    }
+
+    button.danger {
+      color: var(--danger);
+    }
+
+    .progress {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      overflow: hidden;
+      margin: 12px 0;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #14b8a6);
+      border-radius: inherit;
+      width: 0;
+    }
+
+    .badge,
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .badge {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .tag.success {
+      background: rgba(15, 118, 110, 0.12);
+      color: var(--success);
+    }
+
+    .tag.warning {
+      background: rgba(180, 83, 9, 0.12);
+      color: var(--warning);
+    }
+
+    .tag.danger {
+      background: rgba(185, 28, 28, 0.12);
+      color: var(--danger);
+    }
+
+    .candidate-score {
+      font-size: 28px;
+      font-weight: 800;
+      margin: 8px 0 4px;
+    }
+
+    .candidate-card.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .candidate-card h3,
+    .project-card h3,
+    .package-card h3,
+    .case-card h3 {
+      margin-bottom: 6px;
+    }
+
+    .project-stats,
+    .case-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .project-stats span,
+    .case-stats span {
+      background: #fff;
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      border-radius: 12px;
+      font-size: 13px;
+    }
+
+    .checklist label {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-weight: 500;
+      margin: 0;
+      padding: 12px 14px;
+      width: min(100%, 360px);
+      background: var(--surface-soft);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+    }
+
+    .checklist input {
+      margin-top: 3px;
+    }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .risk-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      font-size: 14px;
+    }
+
+    .risk-table th,
+    .risk-table td {
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      padding: 10px 8px;
+      vertical-align: top;
+    }
+
+    .empty-state {
+      color: var(--muted);
+      padding: 18px;
+      border-radius: 14px;
+      border: 1px dashed var(--border);
+      background: #fff;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 740px) {
+      .hero-card,
+      .panel {
+        padding: 22px;
+      }
+
+      .top-nav {
+        top: 8px;
+      }
+
+      .panel-header {
+        flex-direction: column;
+      }
+    }
+  </style>
 </head>
 <body>
-  <header>タスク管理アプリ</header>
-  <div class="container">
-    <h2 class="section-title">タスク追加</h2>
-    <div class="input-area">
-      <input type="text" id="taskInput" placeholder="タスクを入力">
-
-      <!--詳細説明-->
-      <input type="text" id="descInput" placeholder="詳細説明(任意)">
-      <input type="date" id="dueDateInput">
-
-      <!--優先度色分け表示-->
-      <select id="prioritySelector">
-        <option value="high">高</option>
-        <option value="medium" selected>中</option>
-        <option value="low">低</option>
-      </select>
-
-      <!--カテゴリ追加欄-->
-      <select id="categorySelector"></select>
-      <button id="addBtn">追加</button>
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="hero-card">
+        <span class="eyebrow">4年後の独立準備を、実務で使える形にする</span>
+        <h1>独立準備ワークベンチ</h1>
+        <p class="hero-copy">
+          業務理解、AI導入設計、AI生成コードの検証、サービス商品化、事例化までを
+          一つの静的アプリにまとめました。入力内容はブラウザの LocalStorage に保存されるため、
+          4年間の積み上げを継続的に管理できます。
+        </p>
+        <div class="hero-grid">
+          <div class="hero-stat">
+            専門領域
+            <strong id="heroNicheValue">未選定</strong>
+          </div>
+          <div class="hero-stat">
+            学習進捗
+            <strong id="heroFoundationValue">0 / 7</strong>
+          </div>
+          <div class="hero-stat">
+            自動化案件
+            <strong id="heroAutomationValue">0 / 5</strong>
+          </div>
+          <div class="hero-stat">
+            事例資産
+            <strong id="heroCaseValue">0 / 5</strong>
+          </div>
+        </div>
+      </div>
     </div>
+  </header>
 
-    <!--カテゴリ追加欄-->
-    <h2 class="section-title">カテゴリ管理</h2>
-    <div class="category-area">
-      <input type="text" id="newCategoryInput" placeholder="新しいカテゴリを入力">
-      <button id="addCategoryBtn">カテゴリ追加</button>
-    </div>
+  <nav class="top-nav" aria-label="セクション移動">
+    <a href="#summary">全体像</a>
+    <a href="#niche">1. 専門領域</a>
+    <a href="#foundation">2. 技術基盤</a>
+    <a href="#automation">3. 自動化実績</a>
+    <a href="#review">4. コード検証</a>
+    <a href="#services">5. 商品化</a>
+    <a href="#cases">6. 事例資産</a>
+    <a href="#next-actions">次の一手</a>
+  </nav>
 
-    <!---カテゴリ削除--->
-    <div class="category-delete-area">
-      <select id="deleteCategorySelector"></select>
-      <button id="deleteCategoryBtn">カテゴリ削除</button>
-    </div>
+  <main class="layout">
+    <section class="panel" id="summary">
+      <div class="panel-header">
+        <div>
+          <h2>全体の進み具合</h2>
+          <p>6つのToDoを、すぐ使える運用テンプレートと記録機能に分解しています。</p>
+        </div>
+        <div class="toolbar">
+          <button id="exportBtn" class="secondary" type="button">保存内容を書き出す</button>
+          <button id="resetBtn" class="ghost danger" type="button">保存内容を初期化</button>
+        </div>
+      </div>
+      <div class="summary-grid">
+        <article class="metric-card">
+          <span class="label">専門領域の明確化</span>
+          <strong id="summaryNicheScore">未選定</strong>
+          <div id="summaryNicheHint" class="muted">3候補を比較し、1つに絞る</div>
+        </article>
+        <article class="metric-card">
+          <span class="label">技術基盤</span>
+          <strong id="summaryFoundationScore">0 / 7</strong>
+          <div id="summaryFoundationHint" class="muted">Python か TypeScript を軸に進める</div>
+        </article>
+        <article class="metric-card">
+          <span class="label">AI自動化の実績</span>
+          <strong id="summaryAutomationScore">0件</strong>
+          <div id="summaryAutomationHint" class="muted">まずは5件の小作品を目標化</div>
+        </article>
+        <article class="metric-card">
+          <span class="label">コード検証の標準化</span>
+          <strong id="summaryReviewScore">0 / 7</strong>
+          <div id="summaryReviewHint" class="muted">仕様・テスト・レビューを固定する</div>
+        </article>
+        <article class="metric-card">
+          <span class="label">サービス価格の設計</span>
+          <strong id="summaryPricingScore">-</strong>
+          <div id="summaryPricingHint" class="muted">成果ベースの価格帯を逆算する</div>
+        </article>
+        <article class="metric-card">
+          <span class="label">事例ストック</span>
+          <strong id="summaryCaseScore">0 / 5</strong>
+          <div id="summaryCaseHint" class="muted">3〜5件で営業資産化する</div>
+        </article>
+      </div>
+      <div class="subcard">
+        <h3>独立準備の完成条件</h3>
+        <div class="progress" aria-hidden="true">
+          <div id="overallProgressBar" class="progress-bar"></div>
+        </div>
+        <p id="overallProgressText" class="muted">0% 完了</p>
+      </div>
+    </section>
 
-    <!--検索機能-->
-    <h2 class="section-title">タスク検索</h2>
-    <div class="search-area">
-      <input type="text" id="searchInput" placeholder="タスクを検索">
-      <button id="searchClearBtn">クリア</button>
-    </div>
+    <section class="panel" id="niche">
+      <div class="panel-header">
+        <div>
+          <h2>1. 狙う業界・業務領域を1つに絞る</h2>
+          <p>業界よりも「誰の、どの業務を、どのKPIで改善するか」が明確になる形で定義します。</p>
+        </div>
+        <span class="badge">ToDo 1</span>
+      </div>
+      <div class="grid-2">
+        <div class="subcard">
+          <h3>候補を追加する</h3>
+          <div class="field">
+            <label for="candidateName">候補名</label>
+            <input id="candidateName" type="text" placeholder="例: 中小企業の営業支援">
+          </div>
+          <div class="field">
+            <label for="candidateBuyer">主な意思決定者</label>
+            <input id="candidateBuyer" type="text" placeholder="例: 営業部長、代表、CS責任者">
+          </div>
+          <div class="field">
+            <label for="candidateWorkflow">対象業務</label>
+            <input id="candidateWorkflow" type="text" placeholder="例: 問い合わせ対応、商談前の情報整理">
+          </div>
+          <div class="field">
+            <label for="candidateDifferentiator">勝ち筋・強み</label>
+            <textarea id="candidateDifferentiator" placeholder="例: 現場経験があり、要件定義と実装の両方を持てる"></textarea>
+          </div>
+          <div class="grid-3">
+            <div class="field">
+              <label for="scoreAccess">顧客接点</label>
+              <select id="scoreAccess">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="scorePain">課題の強さ</label>
+              <select id="scorePain">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="scoreBudget">予算性</label>
+              <select id="scoreBudget">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="scoreRepeatability">再現性</label>
+              <select id="scoreRepeatability">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="scoreMotivation">熱量</label>
+              <select id="scoreMotivation">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+          </div>
+          <button id="addCandidateBtn" type="button">候補を追加</button>
+          <p class="footer-note">まずは3候補を比較し、スコアと勝ち筋の両方から最終選定します。</p>
+        </div>
+        <div class="subcard">
+          <h3>候補一覧と最終ポジション</h3>
+          <div id="candidateList"></div>
+          <div class="template-box" style="margin-top:16px;">
+            <div class="small-label">一言で伝える専門領域</div>
+            <pre id="positioningStatement">候補を選ぶと、独立時の肩書きと提案の軸がここに生成されます。</pre>
+          </div>
+        </div>
+      </div>
+    </section>
 
-    <!--フィルタ機能-->
-    <h2 class="section-title">タスクフィルタ</h2>
-    <div class="filter-area">
-      <select id="filterStatus">
-        <option value="all">すべて</option>
-        <option value="completed">完了のみ</option>
-        <option value="incomplete">未完了のみ</option>
-      </select>
-      <select id="filterPriority">
-        <option value="all">全優先度</option>
-        <option value="high">高</option>
-        <option value="medium">中</option>
-        <option value="low">低</option>
-      </select>
-      <select id="filterCategory">
-        <option value="all">全カテゴリ</option>
-      </select>
-    </div>
+    <section class="panel" id="foundation">
+      <div class="panel-header">
+        <div>
+          <h2>2. 技術基盤を固める</h2>
+          <p>Python か TypeScript を主軸にしながら、SQL・API・Git・テスト・セキュリティを実務品質で積み上げます。</p>
+        </div>
+        <span class="badge">ToDo 2</span>
+      </div>
+      <div class="grid-2">
+        <div class="subcard">
+          <h3>主軸トラック</h3>
+          <div class="button-row" id="trackButtons">
+            <button id="trackPythonBtn" class="secondary" type="button">Python軸</button>
+            <button id="trackTypeScriptBtn" class="ghost" type="button">TypeScript軸</button>
+          </div>
+          <div class="progress" aria-hidden="true">
+            <div id="foundationProgressBar" class="progress-bar"></div>
+          </div>
+          <p id="foundationProgressText" class="muted">0 / 7 完了</p>
+          <div id="moduleChecklist" class="module-grid"></div>
+        </div>
+        <div class="subcard">
+          <h3>現在の学習メモ</h3>
+          <div class="field">
+            <label for="foundationGoal">今月の重点テーマ</label>
+            <textarea id="foundationGoal" placeholder="例: FastAPI で API を1本作る / TypeScript で型安全なフォームを作る"></textarea>
+          </div>
+          <div class="field">
+            <label for="foundationEvidence">到達証拠</label>
+            <textarea id="foundationEvidence" placeholder="例: GitHub Pagesで公開、テストを追加、READMEに手順を残す"></textarea>
+          </div>
+          <div class="template-box">
+            <div class="small-label">トラック別の推奨スタック</div>
+            <pre id="trackGuide"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
 
-    <!--ソート機能-->
-    <h2 class="section-title">タスク並び替え</h2>
-    <div class="sort-area">
-      <select id="sortSelector">
-        <option value="created">作成日時順</option>
-        <option value="dueDate">期限順</option>
-        <option value="priority">優先度順</option>
-      </select>
-    </div>
+    <section class="panel" id="automation">
+      <div class="panel-header">
+        <div>
+          <h2>3. 小さなAI自動化を5件以上つくる</h2>
+          <p>時間短縮と利益を数値で残すため、作品ごとに改善前後の工数を必ず記録します。</p>
+        </div>
+        <span class="badge">ToDo 3</span>
+      </div>
+      <div class="grid-2">
+        <div class="subcard">
+          <h3>作品を追加する</h3>
+          <div class="field">
+            <label for="hourlyRate">時間価値（円 / 時）</label>
+            <input id="hourlyRate" type="number" min="0" step="500" placeholder="例: 4000">
+          </div>
+          <div class="field">
+            <label for="projectTitle">作品名</label>
+            <input id="projectTitle" type="text" placeholder="例: 問い合わせ要約ボット">
+          </div>
+          <div class="field">
+            <label for="projectWorkflow">対象業務</label>
+            <input id="projectWorkflow" type="text" placeholder="例: 日報整理、議事録要約、商談前調査">
+          </div>
+          <div class="grid-3">
+            <div class="field">
+              <label for="beforeMinutes">改善前（分 / 回）</label>
+              <input id="beforeMinutes" type="number" min="0" step="1">
+            </div>
+            <div class="field">
+              <label for="afterMinutes">改善後（分 / 回）</label>
+              <input id="afterMinutes" type="number" min="0" step="1">
+            </div>
+            <div class="field">
+              <label for="volumePerWeek">頻度（回 / 週）</label>
+              <input id="volumePerWeek" type="number" min="0" step="1">
+            </div>
+          </div>
+          <div class="field">
+            <label for="projectNotes">メモ</label>
+            <textarea id="projectNotes" placeholder="例: 要約品質は人間確認あり。CRM転記まで自動化すると次の効果が出る"></textarea>
+          </div>
+          <button id="addProjectBtn" type="button">作品を記録</button>
+        </div>
+        <div class="subcard">
+          <h3>数値サマリー</h3>
+          <div class="summary-grid">
+            <div class="metric-card">
+              <span class="label">作品数</span>
+              <strong id="projectCountValue">0 / 5</strong>
+            </div>
+            <div class="metric-card">
+              <span class="label">削減時間</span>
+              <strong id="savedHoursValue">0h / 年</strong>
+            </div>
+            <div class="metric-card">
+              <span class="label">換算価値</span>
+              <strong id="savedValueValue">0円 / 年</strong>
+            </div>
+          </div>
+          <div id="projectList" class="case-grid"></div>
+        </div>
+      </div>
+    </section>
 
-    <ul id="taskList"></ul>
-  </div>
+    <section class="panel" id="review">
+      <div class="panel-header">
+        <div>
+          <h2>4. AI生成コードの標準レビュー手順を持つ</h2>
+          <p>AIの出力は未検証の下書きとして扱い、仕様・型・テスト・依存関係・セキュリティで採点します。</p>
+        </div>
+        <span class="badge">ToDo 4</span>
+      </div>
+      <div class="grid-2">
+        <div class="subcard">
+          <h3>レビュー対象を定義する</h3>
+          <div class="field">
+            <label for="reviewRequirement">要件</label>
+            <textarea id="reviewRequirement" placeholder="何を満たせば正しいか、成功条件を文章で書く"></textarea>
+          </div>
+          <div class="field">
+            <label for="reviewScenarios">壊れてはいけないケース</label>
+            <textarea id="reviewScenarios" placeholder="例: 異常系、空入力、権限なし、API失敗時"></textarea>
+          </div>
+          <div class="field">
+            <label for="reviewRisk">リスク領域</label>
+            <select id="reviewRisk">
+              <option value="通常">通常</option>
+              <option value="業務ロジック">業務ロジック</option>
+              <option value="認証・認可">認証・認可</option>
+              <option value="機密データ">機密データ</option>
+              <option value="決済">決済</option>
+            </select>
+          </div>
+          <div id="reviewChecklist" class="checklist"></div>
+        </div>
+        <div class="subcard">
+          <h3>レビュー出力テンプレート</h3>
+          <div class="button-row">
+            <button id="copyReviewBtn" type="button">レビュー文をコピー</button>
+          </div>
+          <div class="template-box" style="margin-top: 12px;">
+            <pre id="reviewOutput"></pre>
+          </div>
+          <table class="risk-table">
+            <thead>
+              <tr>
+                <th>典型的な失敗</th>
+                <th>見るべき点</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>仕様逸脱</td>
+                <td>要件文と diff を照合し、成功条件が実装されているかを見る</td>
+              </tr>
+              <tr>
+                <td>APIや依存の幻覚</td>
+                <td>型チェック、ビルド、lockfile、公式ドキュメントで実在確認する</td>
+              </tr>
+              <tr>
+                <td>エラーハンドリング不足</td>
+                <td>外部I/Oごとに失敗時の挙動、再試行、ユーザー通知を確認する</td>
+              </tr>
+              <tr>
+                <td>セキュリティ欠陥</td>
+                <td>入力値検証、認証、機密情報、監査ログ、権限境界を確認する</td>
+              </tr>
+              <tr>
+                <td>意味のないテスト</td>
+                <td>テストを意図的に壊して、本当に要件違反を検知するかを見る</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
 
-    <script>
-      const taskInput = document.getElementById("taskInput");
-       /*詳細説明*/
-      const descInput = document.getElementById("descInput");
-      const addBtn = document.getElementById("addBtn");
-      const taskList = document.getElementById("taskList");
-      /*優先度色分け表示*/
-      const prioritySelector = document.getElementById("prioritySelector");
-      /*期限表示*/
-      const dueDateInput = document.getElementById("dueDateInput");
-      /*カテゴリ追加*/
-      const categorySelector = document.getElementById("categorySelector");
-      const newCategoryInput = document.getElementById("newCategoryInput");
-      const addCategoryBtn = document.getElementById("addCategoryBtn");
-      /*カテゴリ削除*/
-      const deleteCategorySelector = document.getElementById("deleteCategorySelector");
-      const deleteCategoryBtn = document.getElementById("deleteCategoryBtn");
-      /*検索機能*/
-      const searchInput = document.getElementById("searchInput");
-      const searchClearBtn = document.getElementById("searchClearBtn");
-      /*フィルター*/
-      const filterStatus = document.getElementById("filterStatus");
-      const filterPriority = document.getElementById("filterPriority");
-      const filterCategory = document.getElementById("filterCategory");
-      /*ソート機能*/
-      const sortSelector = document.getElementById("sortSelector");
-     
-      //---LocalStrageからデータ読み込み---
-      let data = JSON.parse(localStorage.getItem("key")) || [];
-      let categories = JSON.parse(localStorage.getItem("categories")) || ["仕事","プライベート","その他"];
-      let editIndex = null; //編集中のインデックスを保持
-      let currentView = "all";
+    <section class="panel" id="services">
+      <div class="panel-header">
+        <div>
+          <h2>5. 診断・実証・継続改善の3段階で商品化する</h2>
+          <p>工数ではなく成果から価格を設計し、顧客にも自分にも利益が残る形にします。</p>
+        </div>
+        <span class="badge">ToDo 5</span>
+      </div>
+      <div class="grid-2">
+        <div class="subcard">
+          <h3>ROI試算</h3>
+          <div class="field">
+            <label for="serviceTarget">想定顧客</label>
+            <input id="serviceTarget" type="text" placeholder="例: 20〜50名規模のBtoB企業">
+          </div>
+          <div class="field">
+            <label for="serviceWorkflow">改善する業務</label>
+            <input id="serviceWorkflow" type="text" placeholder="例: 問い合わせ一次対応、提案前情報収集">
+          </div>
+          <div class="grid-3">
+            <div class="field">
+              <label for="serviceHourlyCost">顧客の人件費（円 / 時）</label>
+              <input id="serviceHourlyCost" type="number" min="0" step="500">
+            </div>
+            <div class="field">
+              <label for="serviceSavedHours">削減時間（時間 / 週）</label>
+              <input id="serviceSavedHours" type="number" min="0" step="1">
+            </div>
+            <div class="field">
+              <label for="serviceRevenueUplift">追加売上（円 / 月）</label>
+              <input id="serviceRevenueUplift" type="number" min="0" step="10000">
+            </div>
+          </div>
+          <div class="grid-3">
+            <div class="field">
+              <label for="priceDiagnostic">診断価格</label>
+              <input id="priceDiagnostic" type="number" min="0" step="10000">
+            </div>
+            <div class="field">
+              <label for="pricePilot">実証価格</label>
+              <input id="pricePilot" type="number" min="0" step="10000">
+            </div>
+            <div class="field">
+              <label for="priceRetainer">継続価格（月額）</label>
+              <input id="priceRetainer" type="number" min="0" step="10000">
+            </div>
+          </div>
+          <div class="summary-grid">
+            <div class="metric-card">
+              <span class="label">年間インパクト</span>
+              <strong id="annualImpactValue">0円</strong>
+            </div>
+            <div class="metric-card">
+              <span class="label">推奨実装価格</span>
+              <strong id="suggestedPriceValue">0円</strong>
+            </div>
+          </div>
+        </div>
+        <div class="subcard">
+          <h3>サービスメニューと提案文</h3>
+          <div class="package-grid">
+            <article class="package-card">
+              <span class="tag success">診断</span>
+              <h3>AI業務診断</h3>
+              <p class="muted">業務棚卸し、ボトルネック特定、優先順位付け、KPI設計</p>
+            </article>
+            <article class="package-card">
+              <span class="tag warning">実証</span>
+              <h3>1業務の小規模導入</h3>
+              <p class="muted">PoCではなく、ログ・例外処理・運用導線まで含めた実装</p>
+            </article>
+            <article class="package-card">
+              <span class="tag danger">継続改善</span>
+              <h3>月次の改善伴走</h3>
+              <p class="muted">監視、改善、追加業務の展開、社内運用ルール整備</p>
+            </article>
+          </div>
+          <div class="button-row" style="margin: 16px 0 12px;">
+            <button id="copyProposalBtn" type="button">提案文をコピー</button>
+          </div>
+          <div class="template-box">
+            <pre id="proposalOutput"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
 
-      //---カテゴリ表示更新---
-      function renderCategories(){
-        categorySelector.innerHTML = "";
-        filterCategory.innerHTML = '<option value="all">全カテゴリ</option>';
-        deleteCategorySelector.innerHTML = "";
-        for(let i=0;i<categories.length;i++){
-          const category = categories[i];
+    <section class="panel" id="cases">
+      <div class="panel-header">
+        <div>
+          <h2>6. 3〜5件の成果事例を営業資産にする</h2>
+          <p>課題、実装、成果、証拠を固定フォーマットで残し、再提案できる状態を作ります。</p>
+        </div>
+        <span class="badge">ToDo 6</span>
+      </div>
+      <div class="grid-2">
+        <div class="subcard">
+          <h3>事例を追加する</h3>
+          <div class="field">
+            <label for="caseTitle">事例タイトル</label>
+            <input id="caseTitle" type="text" placeholder="例: 営業準備の調査時間を半減">
+          </div>
+          <div class="field">
+            <label for="caseChallenge">課題</label>
+            <textarea id="caseChallenge" placeholder="誰が何に困っていたか"></textarea>
+          </div>
+          <div class="field">
+            <label for="caseSolution">何を変えたか</label>
+            <textarea id="caseSolution" placeholder="導入したAI、フロー変更、人の確認ポイント"></textarea>
+          </div>
+          <div class="grid-3">
+            <div class="field">
+              <label for="caseHoursSaved">削減時間（時間 / 月）</label>
+              <input id="caseHoursSaved" type="number" min="0" step="1">
+            </div>
+            <div class="field">
+              <label for="caseRevenueImpact">売上・利益影響（円 / 月）</label>
+              <input id="caseRevenueImpact" type="number" min="0" step="10000">
+            </div>
+            <div class="field">
+              <label for="caseVisibility">公開区分</label>
+              <select id="caseVisibility">
+                <option value="社外公開可">社外公開可</option>
+                <option value="匿名公開">匿名公開</option>
+                <option value="社内限定">社内限定</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="caseProof">成果の証拠</label>
+            <input id="caseProof" type="text" placeholder="例: 作業時間ログ、処理件数、エラー率">
+          </div>
+          <button id="addCaseBtn" type="button">事例を保存</button>
+        </div>
+        <div class="subcard">
+          <h3>事例ライブラリ</h3>
+          <div class="summary-grid">
+            <div class="metric-card">
+              <span class="label">保存件数</span>
+              <strong id="caseCountValue">0 / 5</strong>
+            </div>
+            <div class="metric-card">
+              <span class="label">営業準備度</span>
+              <strong id="caseReadinessValue">0%</strong>
+            </div>
+          </div>
+          <div id="caseList" class="case-grid"></div>
+          <div class="template-box" style="margin-top:16px;">
+            <div class="small-label">事例テンプレート</div>
+            <pre id="caseTemplateOutput"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
 
-          //タスク追加用カテゴリ選択欄
-          const opt1 = document.createElement("option");
-          opt1.value = category;
-          opt1.textContent = category;
-          categorySelector.appendChild(opt1);
+    <section class="panel" id="next-actions">
+      <div class="panel-header">
+        <div>
+          <h2>次の90日でやること</h2>
+          <p>入力状況をもとに、今優先すべきアクションを自動で並べます。</p>
+        </div>
+      </div>
+      <div class="subcard">
+        <ol id="nextActionList"></ol>
+      </div>
+    </section>
+  </main>
 
-          //フィルタ選択用カテゴリ選択欄
-          const opt2 = document.createElement("option");
-          opt2.value = category;
-          opt2.textContent = category;
-          filterCategory.appendChild(opt2);
+  <script>
+    const STORAGE_KEY = "independence-workbench-v1";
+    const MODULES = [
+      { key: "sql", label: "SQL / データモデリング", hint: "データ取得、集計、更新を迷わず書ける状態にする" },
+      { key: "api", label: "API / 連携設計", hint: "認証、入力検証、失敗時の扱いを理解する" },
+      { key: "git", label: "Git / 変更管理", hint: "ブランチ、レビュー、ロールバックの基本を運用できる" },
+      { key: "testing", label: "テスト設計", hint: "要件先行で unit / integration の観点を持つ" },
+      { key: "security", label: "セキュリティ", hint: "認証、認可、入力値検証、秘密情報の扱いを押さえる" },
+      { key: "cloud", label: "クラウド基礎", hint: "デプロイ、ログ、環境変数、障害時の切り分けができる" },
+      { key: "automation", label: "ノーコード / 自動化", hint: "ワークフローと人の確認ポイントを設計できる" }
+    ];
 
-          //カテゴリ削除
-          const opt3 = document.createElement("option");
-          opt3.value = category;
-          opt3.textContent = category;
-          deleteCategorySelector.appendChild(opt3);
+    const REVIEW_GATES = [
+      { key: "spec", label: "要件と成功条件を文章で固定した" },
+      { key: "scenarios", label: "壊れてはいけないケースを列挙した" },
+      { key: "types", label: "型チェック / ビルドでAPIの幻覚を潰した" },
+      { key: "tests", label: "人間起点のテストで要件を検証した" },
+      { key: "dependencies", label: "依存関係とライブラリの実在性を確認した" },
+      { key: "security", label: "入力値検証、権限、秘密情報の扱いを確認した" },
+      { key: "explainability", label: "重要ロジックを人間が説明できる状態にした" }
+    ];
+
+    const defaultState = {
+      niche: {
+        candidates: [
+          {
+            id: "seed-sales-ops",
+            name: "営業支援",
+            buyer: "営業責任者",
+            workflow: "提案前の情報収集と下準備",
+            differentiator: "要件整理から自動化、効果測定まで一気通貫で持てる",
+            scores: { access: 4, pain: 4, budget: 3, repeatability: 4, motivation: 5 }
+          },
+          {
+            id: "seed-cs",
+            name: "カスタマーサポート",
+            buyer: "CS責任者",
+            workflow: "問い合わせ一次対応と要約",
+            differentiator: "分類、要約、ナレッジ連携をテンプレート化しやすい",
+            scores: { access: 3, pain: 5, budget: 3, repeatability: 5, motivation: 4 }
+          },
+          {
+            id: "seed-backoffice",
+            name: "バックオフィス",
+            buyer: "管理部門責任者",
+            workflow: "申請処理と文書チェック",
+            differentiator: "入力チェックと監査ログ設計を含めて改善しやすい",
+            scores: { access: 3, pain: 4, budget: 4, repeatability: 4, motivation: 3 }
+          }
+        ],
+        selectedId: "seed-sales-ops"
+      },
+      foundation: {
+        primaryTrack: "python",
+        modules: {
+          sql: false,
+          api: false,
+          git: false,
+          testing: false,
+          security: false,
+          cloud: false,
+          automation: false
+        },
+        goal: "",
+        evidence: ""
+      },
+      automation: {
+        hourlyRate: 4000,
+        projects: []
+      },
+      review: {
+        requirement: "",
+        scenarios: "",
+        risk: "通常",
+        gates: {
+          spec: false,
+          scenarios: false,
+          types: false,
+          tests: false,
+          dependencies: false,
+          security: false,
+          explainability: false
         }
-        if(categories.length>0){
-          categorySelector.value = categories[0];
-        }
+      },
+      services: {
+        target: "",
+        workflow: "",
+        hourlyCost: 5000,
+        hoursSavedPerWeek: 10,
+        revenueUpliftPerMonth: 0,
+        priceDiagnostic: 150000,
+        pricePilot: 600000,
+        priceRetainer: 120000
+      },
+      cases: {
+        studies: []
       }
+    };
 
-      //---カテゴリ追加---
-      addCategoryBtn.addEventListener("click", function(){
-        const newCat = newCategoryInput.value.trim();
-        if(newCat === "" || categories.includes(newCat)){
-          return;
+    const els = {
+      heroNicheValue: document.getElementById("heroNicheValue"),
+      heroFoundationValue: document.getElementById("heroFoundationValue"),
+      heroAutomationValue: document.getElementById("heroAutomationValue"),
+      heroCaseValue: document.getElementById("heroCaseValue"),
+      summaryNicheScore: document.getElementById("summaryNicheScore"),
+      summaryNicheHint: document.getElementById("summaryNicheHint"),
+      summaryFoundationScore: document.getElementById("summaryFoundationScore"),
+      summaryFoundationHint: document.getElementById("summaryFoundationHint"),
+      summaryAutomationScore: document.getElementById("summaryAutomationScore"),
+      summaryAutomationHint: document.getElementById("summaryAutomationHint"),
+      summaryReviewScore: document.getElementById("summaryReviewScore"),
+      summaryReviewHint: document.getElementById("summaryReviewHint"),
+      summaryPricingScore: document.getElementById("summaryPricingScore"),
+      summaryPricingHint: document.getElementById("summaryPricingHint"),
+      summaryCaseScore: document.getElementById("summaryCaseScore"),
+      summaryCaseHint: document.getElementById("summaryCaseHint"),
+      overallProgressBar: document.getElementById("overallProgressBar"),
+      overallProgressText: document.getElementById("overallProgressText"),
+      candidateName: document.getElementById("candidateName"),
+      candidateBuyer: document.getElementById("candidateBuyer"),
+      candidateWorkflow: document.getElementById("candidateWorkflow"),
+      candidateDifferentiator: document.getElementById("candidateDifferentiator"),
+      scoreAccess: document.getElementById("scoreAccess"),
+      scorePain: document.getElementById("scorePain"),
+      scoreBudget: document.getElementById("scoreBudget"),
+      scoreRepeatability: document.getElementById("scoreRepeatability"),
+      scoreMotivation: document.getElementById("scoreMotivation"),
+      addCandidateBtn: document.getElementById("addCandidateBtn"),
+      candidateList: document.getElementById("candidateList"),
+      positioningStatement: document.getElementById("positioningStatement"),
+      trackPythonBtn: document.getElementById("trackPythonBtn"),
+      trackTypeScriptBtn: document.getElementById("trackTypeScriptBtn"),
+      moduleChecklist: document.getElementById("moduleChecklist"),
+      foundationProgressBar: document.getElementById("foundationProgressBar"),
+      foundationProgressText: document.getElementById("foundationProgressText"),
+      foundationGoal: document.getElementById("foundationGoal"),
+      foundationEvidence: document.getElementById("foundationEvidence"),
+      trackGuide: document.getElementById("trackGuide"),
+      hourlyRate: document.getElementById("hourlyRate"),
+      projectTitle: document.getElementById("projectTitle"),
+      projectWorkflow: document.getElementById("projectWorkflow"),
+      beforeMinutes: document.getElementById("beforeMinutes"),
+      afterMinutes: document.getElementById("afterMinutes"),
+      volumePerWeek: document.getElementById("volumePerWeek"),
+      projectNotes: document.getElementById("projectNotes"),
+      addProjectBtn: document.getElementById("addProjectBtn"),
+      projectCountValue: document.getElementById("projectCountValue"),
+      savedHoursValue: document.getElementById("savedHoursValue"),
+      savedValueValue: document.getElementById("savedValueValue"),
+      projectList: document.getElementById("projectList"),
+      reviewRequirement: document.getElementById("reviewRequirement"),
+      reviewScenarios: document.getElementById("reviewScenarios"),
+      reviewRisk: document.getElementById("reviewRisk"),
+      reviewChecklist: document.getElementById("reviewChecklist"),
+      reviewOutput: document.getElementById("reviewOutput"),
+      copyReviewBtn: document.getElementById("copyReviewBtn"),
+      serviceTarget: document.getElementById("serviceTarget"),
+      serviceWorkflow: document.getElementById("serviceWorkflow"),
+      serviceHourlyCost: document.getElementById("serviceHourlyCost"),
+      serviceSavedHours: document.getElementById("serviceSavedHours"),
+      serviceRevenueUplift: document.getElementById("serviceRevenueUplift"),
+      priceDiagnostic: document.getElementById("priceDiagnostic"),
+      pricePilot: document.getElementById("pricePilot"),
+      priceRetainer: document.getElementById("priceRetainer"),
+      annualImpactValue: document.getElementById("annualImpactValue"),
+      suggestedPriceValue: document.getElementById("suggestedPriceValue"),
+      proposalOutput: document.getElementById("proposalOutput"),
+      copyProposalBtn: document.getElementById("copyProposalBtn"),
+      caseTitle: document.getElementById("caseTitle"),
+      caseChallenge: document.getElementById("caseChallenge"),
+      caseSolution: document.getElementById("caseSolution"),
+      caseHoursSaved: document.getElementById("caseHoursSaved"),
+      caseRevenueImpact: document.getElementById("caseRevenueImpact"),
+      caseVisibility: document.getElementById("caseVisibility"),
+      caseProof: document.getElementById("caseProof"),
+      addCaseBtn: document.getElementById("addCaseBtn"),
+      caseCountValue: document.getElementById("caseCountValue"),
+      caseReadinessValue: document.getElementById("caseReadinessValue"),
+      caseList: document.getElementById("caseList"),
+      caseTemplateOutput: document.getElementById("caseTemplateOutput"),
+      nextActionList: document.getElementById("nextActionList"),
+      exportBtn: document.getElementById("exportBtn"),
+      resetBtn: document.getElementById("resetBtn")
+    };
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          return structuredClone(defaultState);
         }
-        categories.push(newCat);
-        newCategoryInput.value = "";
-        localStorage.setItem("categories",JSON.stringify(categories));
-        renderCategories();
+        const parsed = JSON.parse(raw);
+        return {
+          ...structuredClone(defaultState),
+          ...parsed,
+          niche: { ...structuredClone(defaultState).niche, ...parsed.niche },
+          foundation: { ...structuredClone(defaultState).foundation, ...parsed.foundation, modules: { ...structuredClone(defaultState).foundation.modules, ...(parsed.foundation || {}).modules } },
+          automation: { ...structuredClone(defaultState).automation, ...parsed.automation },
+          review: { ...structuredClone(defaultState).review, ...parsed.review, gates: { ...structuredClone(defaultState).review.gates, ...(parsed.review || {}).gates } },
+          services: { ...structuredClone(defaultState).services, ...parsed.services },
+          cases: { ...structuredClone(defaultState).cases, ...parsed.cases }
+        };
+      } catch (error) {
+        return structuredClone(defaultState);
+      }
+    }
+
+    let state = loadState();
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function formatCurrency(value) {
+      return `${Math.round(value || 0).toLocaleString("ja-JP")}円`;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    function copyText(text) {
+      navigator.clipboard.writeText(text).catch(() => {
+        window.alert("コピーに失敗しました。手動でコピーしてください。");
       });
+    }
 
-      //---カテゴリ削除処理
-      deleteCategoryBtn.addEventListener("click", function(){
-        const targetCat = deleteCategorySelector.value;
-        if(!targetCat){
-          return;
-        }
-        //「その他」を削除しようとしたらブロック
-        if(targetCat === "その他"){
-          alert("「その他」カテゴリは削除できません");
-          return;
-        }
-        //タスクに削除カテゴリがあれば「その他」に振替
-        for(let i=0;i<data.length;i++){
-          if(data[i].category === targetCat){
-            data[i].category = "その他";
-          }
-        }
-        //カテゴリを削除
-        categories = categories.filter(cat => cat !== targetCat);
-        //保存
-        localStorage.setItem("categories",JSON.stringify(categories));
-        saveTasks();
+    function candidateScore(candidate) {
+      const scores = candidate.scores;
+      return scores.access + scores.pain + scores.budget + scores.repeatability + scores.motivation;
+    }
 
-        renderCategories();
-        renderTasks();
-        deleteCategorySelector.value = "";
+    function selectedCandidate() {
+      return state.niche.candidates.find((candidate) => candidate.id === state.niche.selectedId) || null;
+    }
+
+    function automationAnnualHours(project) {
+      const before = Number(project.beforeMinutes) || 0;
+      const after = Number(project.afterMinutes) || 0;
+      const volume = Number(project.volumePerWeek) || 0;
+      return Math.max(before - after, 0) * volume * 52 / 60;
+    }
+
+    function automationAnnualValue(project) {
+      return automationAnnualHours(project) * (Number(state.automation.hourlyRate) || 0);
+    }
+
+    function totalAutomationHours() {
+      return state.automation.projects.reduce((sum, project) => sum + automationAnnualHours(project), 0);
+    }
+
+    function totalAutomationValue() {
+      return state.automation.projects.reduce((sum, project) => sum + automationAnnualValue(project), 0);
+    }
+
+    function annualServiceImpact() {
+      const labor = (Number(state.services.hourlyCost) || 0) * (Number(state.services.hoursSavedPerWeek) || 0) * 52;
+      const revenue = (Number(state.services.revenueUpliftPerMonth) || 0) * 12;
+      return labor + revenue;
+    }
+
+    function suggestedPriceRange() {
+      const impact = annualServiceImpact();
+      return {
+        min: impact * 0.1,
+        max: impact * 0.25
+      };
+    }
+
+    function renderCandidates() {
+      const sorted = [...state.niche.candidates].sort((a, b) => candidateScore(b) - candidateScore(a));
+      if (!sorted.length) {
+        els.candidateList.innerHTML = '<div class="empty-state">候補を追加してください。</div>';
+        els.positioningStatement.textContent = "候補を選ぶと、独立時の肩書きと提案の軸がここに生成されます。";
+        return;
+      }
+
+      els.candidateList.innerHTML = sorted.map((candidate) => {
+        const selected = candidate.id === state.niche.selectedId;
+        return `
+          <article class="candidate-card ${selected ? "selected" : ""}">
+            <div class="button-row" style="justify-content: space-between; align-items: flex-start;">
+              <div>
+                <span class="small-label">${escapeHtml(candidate.workflow)}</span>
+                <h3>${escapeHtml(candidate.name)}</h3>
+                <div class="muted">${escapeHtml(candidate.buyer)}</div>
+              </div>
+              <span class="tag ${selected ? "success" : "warning"}">${selected ? "選定中" : "候補"}</span>
+            </div>
+            <div class="candidate-score">${candidateScore(candidate)} / 25</div>
+            <p class="muted">${escapeHtml(candidate.differentiator)}</p>
+            <div class="button-row">
+              <button type="button" data-action="select-candidate" data-id="${candidate.id}">${selected ? "選定済み" : "この候補に絞る"}</button>
+              <button class="ghost danger" type="button" data-action="delete-candidate" data-id="${candidate.id}">削除</button>
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      const candidate = selectedCandidate() || sorted[0];
+      if (candidate && !state.niche.selectedId) {
+        state.niche.selectedId = candidate.id;
+        saveState();
+      }
+
+      const active = selectedCandidate() || candidate;
+      els.positioningStatement.textContent = [
+        `私は「${active.name}」向けに、`,
+        `「${active.workflow}」を対象としたAI導入支援を提供する。`,
+        `主な意思決定者は ${active.buyer}。`,
+        `勝ち筋は「${active.differentiator}」。`,
+        `改善対象KPIは、時間短縮・処理件数・エラー率・売上影響の4つで定義する。`
+      ].join("\n");
+    }
+
+    function renderFoundation() {
+      const completed = MODULES.filter((module) => state.foundation.modules[module.key]).length;
+      const percent = Math.round((completed / MODULES.length) * 100);
+      els.foundationProgressText.textContent = `${completed} / ${MODULES.length} 完了`;
+      els.foundationProgressBar.style.width = `${percent}%`;
+      els.trackPythonBtn.className = state.foundation.primaryTrack === "python" ? "secondary" : "ghost";
+      els.trackTypeScriptBtn.className = state.foundation.primaryTrack === "typescript" ? "secondary" : "ghost";
+
+      els.moduleChecklist.innerHTML = MODULES.map((module) => `
+        <label class="risk-card">
+          <input type="checkbox" data-module="${module.key}" ${state.foundation.modules[module.key] ? "checked" : ""}>
+          <div>
+            <strong>${escapeHtml(module.label)}</strong>
+            <div class="muted">${escapeHtml(module.hint)}</div>
+          </div>
+        </label>
+      `).join("");
+
+      els.foundationGoal.value = state.foundation.goal;
+      els.foundationEvidence.value = state.foundation.evidence;
+      els.trackGuide.textContent = state.foundation.primaryTrack === "python"
+        ? [
+            "Python軸の推奨:",
+            "- FastAPI で API を作る",
+            "- pytest で要件先行のテストを書く",
+            "- SQLAlchemy か生SQLで DB と接続する",
+            "- バッチ処理や自動化スクリプトを複数作る",
+            "- セキュリティは認証、環境変数、入力検証を最優先で押さえる"
+          ].join("\n")
+        : [
+            "TypeScript軸の推奨:",
+            "- TypeScript で型安全なフロントと Node.js を扱う",
+            "- Express / NestJS などで API を作る",
+            "- Vitest か Jest でユニットテストを書く",
+            "- フォーム、バリデーション、API連携を型で守る",
+            "- セキュリティは認証、権限、XSS、秘密情報管理を優先する"
+          ].join("\n");
+    }
+
+    function renderAutomation() {
+      els.hourlyRate.value = state.automation.hourlyRate;
+      const hours = totalAutomationHours();
+      const value = totalAutomationValue();
+      els.projectCountValue.textContent = `${state.automation.projects.length} / 5`;
+      els.savedHoursValue.textContent = `${Math.round(hours).toLocaleString("ja-JP")}h / 年`;
+      els.savedValueValue.textContent = `${Math.round(value).toLocaleString("ja-JP")}円 / 年`;
+
+      if (!state.automation.projects.length) {
+        els.projectList.innerHTML = '<div class="empty-state">最初の小作品を記録してください。改善前後の分数と頻度があれば、価値換算までできます。</div>';
+        return;
+      }
+
+      els.projectList.innerHTML = state.automation.projects.map((project) => `
+        <article class="project-card">
+          <div class="button-row" style="justify-content: space-between; align-items: flex-start;">
+            <div>
+              <span class="small-label">${escapeHtml(project.workflow)}</span>
+              <h3>${escapeHtml(project.title)}</h3>
+            </div>
+            <button class="ghost danger" type="button" data-action="delete-project" data-id="${project.id}">削除</button>
+          </div>
+          <p class="muted">${escapeHtml(project.notes || "メモなし")}</p>
+          <div class="project-stats">
+            <span>改善前 ${project.beforeMinutes}分 / 回</span>
+            <span>改善後 ${project.afterMinutes}分 / 回</span>
+            <span>${project.volumePerWeek}回 / 週</span>
+            <span>${Math.round(automationAnnualHours(project)).toLocaleString("ja-JP")}h / 年</span>
+            <span>${Math.round(automationAnnualValue(project)).toLocaleString("ja-JP")}円 / 年</span>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function renderReview() {
+      els.reviewRequirement.value = state.review.requirement;
+      els.reviewScenarios.value = state.review.scenarios;
+      els.reviewRisk.value = state.review.risk;
+      els.reviewChecklist.innerHTML = REVIEW_GATES.map((gate) => `
+        <label>
+          <input type="checkbox" data-gate="${gate.key}" ${state.review.gates[gate.key] ? "checked" : ""}>
+          <span>${escapeHtml(gate.label)}</span>
+        </label>
+      `).join("");
+
+      const completed = REVIEW_GATES.filter((gate) => state.review.gates[gate.key]).length;
+      els.reviewOutput.textContent = [
+        "# AI生成コード レビュー記録",
+        "",
+        `- リスク領域: ${state.review.risk}`,
+        `- 要件: ${state.review.requirement || "未記入"}`,
+        `- 重点シナリオ: ${state.review.scenarios || "未記入"}`,
+        "",
+        "## ゲート確認",
+        ...REVIEW_GATES.map((gate) => `- [${state.review.gates[gate.key] ? "x" : " "}] ${gate.label}`),
+        "",
+        `総合判定: ${completed === REVIEW_GATES.length ? "出荷前の最低基準を満たしている" : "未完了のゲートがあるため追加確認が必要"}`
+      ].join("\n");
+    }
+
+    function renderServices() {
+      els.serviceTarget.value = state.services.target;
+      els.serviceWorkflow.value = state.services.workflow;
+      els.serviceHourlyCost.value = state.services.hourlyCost;
+      els.serviceSavedHours.value = state.services.hoursSavedPerWeek;
+      els.serviceRevenueUplift.value = state.services.revenueUpliftPerMonth;
+      els.priceDiagnostic.value = state.services.priceDiagnostic;
+      els.pricePilot.value = state.services.pricePilot;
+      els.priceRetainer.value = state.services.priceRetainer;
+
+      const impact = annualServiceImpact();
+      const range = suggestedPriceRange();
+      els.annualImpactValue.textContent = formatCurrency(impact);
+      els.suggestedPriceValue.textContent = `${formatCurrency(range.min)} 〜 ${formatCurrency(range.max)}`;
+      els.proposalOutput.textContent = [
+        `対象顧客: ${state.services.target || "未設定"}`,
+        `対象業務: ${state.services.workflow || "未設定"}`,
+        "",
+        "提案構成",
+        `1. 診断 (${formatCurrency(state.services.priceDiagnostic)})`,
+        "   - 業務棚卸し / KPI定義 / AI候補の優先順位付け",
+        `2. 実証 (${formatCurrency(state.services.pricePilot)})`,
+        "   - 1業務の実装 / ログ / 例外処理 / 運用導線の整備",
+        `3. 継続改善 (月額 ${formatCurrency(state.services.priceRetainer)})`,
+        "   - モニタリング / 追加改善 / 社内運用ルールの整備",
+        "",
+        `想定年間インパクト: ${formatCurrency(impact)}`,
+        `推奨価格帯: 初年度価値の10〜25% = ${formatCurrency(range.min)} 〜 ${formatCurrency(range.max)}`,
+        "",
+        "伝え方:",
+        "「何を作るか」ではなく、「どのKPIをどれだけ改善し、何円の価値を返すか」で説明する。"
+      ].join("\n");
+    }
+
+    function renderCases() {
+      const count = state.cases.studies.length;
+      const readiness = Math.min(Math.round((count / 5) * 100), 100);
+      els.caseCountValue.textContent = `${count} / 5`;
+      els.caseReadinessValue.textContent = `${readiness}%`;
+      els.caseTemplateOutput.textContent = [
+        "事例テンプレート",
+        "- 顧客 / 部門:",
+        "- 課題:",
+        "- 導入したAIと運用設計:",
+        "- 改善前後の数値:",
+        "- 売上 / 利益 / 時間短縮への影響:",
+        "- 証拠:",
+        "- 再利用できるテンプレート:"
+      ].join("\n");
+
+      if (!count) {
+        els.caseList.innerHTML = '<div class="empty-state">事例は3〜5件あると営業資産として強くなります。まずは身近な自動化でも構いません。</div>';
+        return;
+      }
+
+      els.caseList.innerHTML = state.cases.studies.map((study) => `
+        <article class="case-card">
+          <div class="button-row" style="justify-content: space-between; align-items: flex-start;">
+            <div>
+              <span class="small-label">${escapeHtml(study.visibility)}</span>
+              <h3>${escapeHtml(study.title)}</h3>
+            </div>
+            <button class="ghost danger" type="button" data-action="delete-case" data-id="${study.id}">削除</button>
+          </div>
+          <p><strong>課題:</strong> ${escapeHtml(study.challenge)}</p>
+          <p><strong>何を変えたか:</strong> ${escapeHtml(study.solution)}</p>
+          <div class="case-stats">
+            <span>${study.hoursSaved}h / 月</span>
+            <span>${formatCurrency(study.revenueImpact)} / 月</span>
+            <span>証拠: ${escapeHtml(study.proof)}</span>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function renderSummary() {
+      const niche = selectedCandidate();
+      const completedModules = MODULES.filter((module) => state.foundation.modules[module.key]).length;
+      const completedReview = REVIEW_GATES.filter((gate) => state.review.gates[gate.key]).length;
+      const projectCount = state.automation.projects.length;
+      const caseCount = state.cases.studies.length;
+      const range = suggestedPriceRange();
+      const completionParts = [
+        niche ? 1 : 0,
+        completedModules === MODULES.length ? 1 : completedModules / MODULES.length,
+        Math.min(projectCount / 5, 1),
+        completedReview / REVIEW_GATES.length,
+        annualServiceImpact() > 0 ? 1 : 0,
+        Math.min(caseCount / 5, 1)
+      ];
+      const completion = Math.round((completionParts.reduce((sum, value) => sum + value, 0) / completionParts.length) * 100);
+
+      els.heroNicheValue.textContent = niche ? niche.name : "未選定";
+      els.heroFoundationValue.textContent = `${completedModules} / ${MODULES.length}`;
+      els.heroAutomationValue.textContent = `${projectCount} / 5`;
+      els.heroCaseValue.textContent = `${caseCount} / 5`;
+
+      els.summaryNicheScore.textContent = niche ? niche.name : "未選定";
+      els.summaryNicheHint.textContent = niche ? `${niche.workflow} を軸に提案する` : "3候補以上を比較して1つに絞る";
+      els.summaryFoundationScore.textContent = `${completedModules} / ${MODULES.length}`;
+      els.summaryFoundationHint.textContent = `${state.foundation.primaryTrack === "python" ? "Python" : "TypeScript"} を主軸に学習中`;
+      els.summaryAutomationScore.textContent = `${projectCount}件`;
+      els.summaryAutomationHint.textContent = `年換算 ${formatCurrency(totalAutomationValue())} の価値を記録`;
+      els.summaryReviewScore.textContent = `${completedReview} / ${REVIEW_GATES.length}`;
+      els.summaryReviewHint.textContent = state.review.risk ? `高リスク領域: ${state.review.risk}` : "レビュー手順を定義する";
+      els.summaryPricingScore.textContent = `${formatCurrency(range.min)} 〜 ${formatCurrency(range.max)}`;
+      els.summaryPricingHint.textContent = `年間価値 ${formatCurrency(annualServiceImpact())} を基準に算出`;
+      els.summaryCaseScore.textContent = `${caseCount} / 5`;
+      els.summaryCaseHint.textContent = caseCount >= 3 ? "営業に使える件数に近づいています" : "3件以上を先に目指す";
+      els.overallProgressBar.style.width = `${completion}%`;
+      els.overallProgressText.textContent = `${completion}% 完了`;
+    }
+
+    function renderNextActions() {
+      const actions = [];
+      if (!selectedCandidate()) {
+        actions.push("候補を3つ以上比較し、最終的に1つの専門領域へ絞る。");
+      } else {
+        actions.push(`選定中の「${selectedCandidate().name}」について、改善KPIを3つ書き出す。`);
+      }
+
+      if (MODULES.filter((module) => state.foundation.modules[module.key]).length < 4) {
+        actions.push("SQL / API / Git / テストの4点を優先して、公開できる学習成果を1つ作る。");
+      }
+
+      if (state.automation.projects.length < 5) {
+        actions.push(`小さなAI自動化をあと ${5 - state.automation.projects.length} 件記録し、改善前後の工数を残す。`);
+      }
+
+      if (REVIEW_GATES.filter((gate) => state.review.gates[gate.key]).length < REVIEW_GATES.length) {
+        actions.push("AI生成コードのレビュー手順を、実案件や練習課題で一度回してテンプレート化する。");
+      }
+
+      if (annualServiceImpact() <= 0) {
+        actions.push("顧客の人件費・削減時間・売上影響を仮置きし、価格を成果ベースで設計する。");
+      }
+
+      if (state.cases.studies.length < 3) {
+        actions.push("まずは3件の事例を作り、課題・変更点・数値・証拠を固定フォーマットで残す。");
+      }
+
+      els.nextActionList.innerHTML = actions.map((action) => `<li>${escapeHtml(action)}</li>`).join("");
+    }
+
+    function render() {
+      renderCandidates();
+      renderFoundation();
+      renderAutomation();
+      renderReview();
+      renderServices();
+      renderCases();
+      renderSummary();
+      renderNextActions();
+      saveState();
+    }
+
+    els.addCandidateBtn.addEventListener("click", () => {
+      const name = els.candidateName.value.trim();
+      const buyer = els.candidateBuyer.value.trim();
+      const workflow = els.candidateWorkflow.value.trim();
+      const differentiator = els.candidateDifferentiator.value.trim();
+      if (!name || !buyer || !workflow) {
+        window.alert("候補名、意思決定者、対象業務は必須です。");
+        return;
+      }
+      const candidate = {
+        id: `candidate-${Date.now()}`,
+        name,
+        buyer,
+        workflow,
+        differentiator,
+        scores: {
+          access: Number(els.scoreAccess.value),
+          pain: Number(els.scorePain.value),
+          budget: Number(els.scoreBudget.value),
+          repeatability: Number(els.scoreRepeatability.value),
+          motivation: Number(els.scoreMotivation.value)
+        }
+      };
+      state.niche.candidates.push(candidate);
+      state.niche.selectedId = candidate.id;
+      els.candidateName.value = "";
+      els.candidateBuyer.value = "";
+      els.candidateWorkflow.value = "";
+      els.candidateDifferentiator.value = "";
+      render();
+    });
+
+    els.candidateList.addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button) {
+        return;
+      }
+      const id = button.dataset.id;
+      if (button.dataset.action === "select-candidate") {
+        state.niche.selectedId = id;
+      }
+      if (button.dataset.action === "delete-candidate") {
+        state.niche.candidates = state.niche.candidates.filter((candidate) => candidate.id !== id);
+        if (state.niche.selectedId === id) {
+          state.niche.selectedId = state.niche.candidates[0] ? state.niche.candidates[0].id : null;
+        }
+      }
+      render();
+    });
+
+    els.trackPythonBtn.addEventListener("click", () => {
+      state.foundation.primaryTrack = "python";
+      render();
+    });
+
+    els.trackTypeScriptBtn.addEventListener("click", () => {
+      state.foundation.primaryTrack = "typescript";
+      render();
+    });
+
+    els.moduleChecklist.addEventListener("change", (event) => {
+      const checkbox = event.target.closest("input[data-module]");
+      if (!checkbox) {
+        return;
+      }
+      state.foundation.modules[checkbox.dataset.module] = checkbox.checked;
+      render();
+    });
+
+    els.foundationGoal.addEventListener("input", () => {
+      state.foundation.goal = els.foundationGoal.value;
+      saveState();
+    });
+
+    els.foundationEvidence.addEventListener("input", () => {
+      state.foundation.evidence = els.foundationEvidence.value;
+      saveState();
+    });
+
+    els.addProjectBtn.addEventListener("click", () => {
+      const title = els.projectTitle.value.trim();
+      const workflow = els.projectWorkflow.value.trim();
+      if (!title || !workflow) {
+        window.alert("作品名と対象業務は必須です。");
+        return;
+      }
+      state.automation.hourlyRate = Number(els.hourlyRate.value) || 0;
+      state.automation.projects.unshift({
+        id: `project-${Date.now()}`,
+        title,
+        workflow,
+        beforeMinutes: Number(els.beforeMinutes.value) || 0,
+        afterMinutes: Number(els.afterMinutes.value) || 0,
+        volumePerWeek: Number(els.volumePerWeek.value) || 0,
+        notes: els.projectNotes.value.trim()
       });
+      els.projectTitle.value = "";
+      els.projectWorkflow.value = "";
+      els.beforeMinutes.value = "";
+      els.afterMinutes.value = "";
+      els.volumePerWeek.value = "";
+      els.projectNotes.value = "";
+      render();
+    });
 
-      //---タスク一覧の表示---
-      function renderTasks(){
-        taskList.innerHTML = "";
-        //---期限関連　今日の日付(YYYY-MM-DD)---
-        const today = new Date().toISOString().slice(0,10);
-        //---検索キーワード---
-        const keyword = searchInput.value.trim().toLowerCase();
+    els.hourlyRate.addEventListener("input", () => {
+      state.automation.hourlyRate = Number(els.hourlyRate.value) || 0;
+      render();
+    });
 
-        //---ソート処理---
-        let sortedData = [...data];//元データをコピー
-        const sortType = sortSelector.value;
-        if(sortType === "created"){
-          //作成日時順（新しい順）
-          sortedData.sort((a,b)=>new Date(b.createdAt) - new Date(a.createdAt));
-        }else if(sortType === "dueDate"){
-          //期限順（古い順）期限なしは後ろへ
-          sortedData.sort((a,b)=>{
-            if(!a.dueDate){
-              return 1;
-            }
-            if(!b.dueDate){
-              return -1;
-            }
-            return new Date(a.dueDate) - new Date(b.dueDate); 
-          });
-        }else if(sortType==="priority"){
-          //優先度順（高い順）
-          const order = {high: 1,medium: 2, low:3};
-          sortedData.sort((a,b)=>order[a.priority]-order[b.priority]);
-        }
-
-        for(let index=0;index<sortedData.length;index++){
-          const task = sortedData[index];
-
-          //---検索キーワードに部分一致しない場合はスキップ---
-          if(keyword && !task.text.toLowerCase().includes(keyword)){
-            continue;
-          }
-
-          //---フィルタ適用---
-          if(filterStatus.value === "completed" && !task.completed){
-            continue;
-          }
-          if(filterStatus.value === "incomplete" && task.completed){
-            continue;
-          }
-          if(filterPriority.value !== "all" && task.priority !== filterPriority.value){
-            continue;
-          }
-          if(filterCategory.value !== "all" && task.category !== filterCategory.value){
-            continue;
-          }
-          if(currentView === "today" && task.dueDate !== today){
-            continue;
-          }
-          if(currentView === "completed" && !task.completed){
-            continue;
-          }
-
-          const li = document.createElement("li");
-          
-          //---完了状態---
-          if(task.completed){
-            li.classList.add("completed");
-          }
-          //---優先度色分け表示---
-          li.classList.add(task.priority);
-
-          //---期限判定---
-          if(task.dueDate){
-            if(task.dueDate<today){
-              li.classList.add("overdue");
-            }else if(task.dueDate === today){
-              li.classList.add("due-today");
-            }
-          }
-
-          //ソート後のタスク(task)に対応する、元の data 配列での位置を探す
-          let originalIndex = -1;
-          for(let i=0;i<data.length;i++){
-            if(data[i].id === task.id){
-              originalIndex = i;
-              break;
-            }
-          }
-
-          //---作成日・更新日---
-          const topInfo = document.createElement("div");
-          topInfo.classList.add("task-top-info");
-
-          if(task.updatedAt){
-            const updated = new Date(task.updatedAt);
-            if(!isNaN(updated)){
-              topInfo.textContent = `更新日：${updated.toLocaleDateString("ja-JP")}`;
-            }
-          }else if(task.createdAt){
-              const created = new Date(task.createdAt);
-              if(!isNaN(created)){
-                topInfo.textContent = `作成日：${created.toLocaleDateString("ja-JP")}`;
-              }
-          }
-          li.appendChild(topInfo); 
-
-          //---チェックボックス作成---
-          const checkbox = document.createElement("input");
-          checkbox.type = "checkbox";
-          checkbox.checked = task.completed;
-          checkbox.addEventListener("change", function(){
-            toggleTask(originalIndex);
-          });
-
-          //---テキスト---
-          const span = document.createElement("span");
-          span.textContent = task.text;
-          span.addEventListener("click", function(){
-            toggleTask(originalIndex);
-          });
-
-          //---詳細説明---
-          const descSpan = document.createElement("div");
-          descSpan.textContent = task.description || "";
-          descSpan.style.fontSize = "12px";
-          descSpan.style.color = "#555";
-          descSpan.style.marginLeft = "25px";
-
-          //---カテゴリ表示---
-          const catSpan = document.createElement("span");
-          catSpan.classList.add("category-badge");
-          catSpan.textContent = task.category || "未分類";
-
-          //---期限表示---
-          const dueSpan = document.createElement("span");
-          dueSpan.classList.add("due-date");
-          if(task.dueDate){
-            dueSpan.textContent = `期限：${task.dueDate}`;
-          }
-
-          //---ボタンエリア---
-          const buttonArea = document.createElement("div");
-          buttonArea.classList.add("task-buttons");
-
-          //---編集ボタン---
-          const editBtn = document.createElement("button");
-          editBtn.textContent = "編集";
-          editBtn.addEventListener("click", function(){
-            editTask(originalIndex,li);
-          });
-
-          //---削除ボタン---
-          const delBtn = document.createElement("button");
-          delBtn.textContent = "削除";
-          delBtn.addEventListener("click", function(){
-            deleteTask(originalIndex);
-          });
-
-          buttonArea.appendChild(editBtn); //詳細説明編集ボタン
-          buttonArea.appendChild(delBtn);
-
-          //---チェックボックスを左に配置---
-          const titleRow = document.createElement("div");
-          titleRow.classList.add("task-main-row");
-          titleRow.appendChild(checkbox);
-          titleRow.appendChild(span);
-
-          const infoRow = document.createElement("div");
-          infoRow.classList.add("task-main-row");
-          /*詳細説明*/
-          infoRow.appendChild(descSpan);
-          /*カテゴリ表示*/
-          infoRow.appendChild(catSpan);
-          /*期限表示*/
-          infoRow.appendChild(dueSpan);
-
-          const buttonRow = document.createElement("div");
-          buttonRow.classList.add("task-main-row");
-          buttonRow.appendChild(buttonArea);
-
-          li.appendChild(titleRow);
-          li.appendChild(infoRow);
-          li.appendChild(buttonRow);
-
-          taskList.appendChild(li);
-        }
+    els.projectList.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action='delete-project']");
+      if (!button) {
+        return;
       }
+      state.automation.projects = state.automation.projects.filter((project) => project.id !== button.dataset.id);
+      render();
+    });
 
-      //---LocalStorageに保存---
-      function saveTasks(){
-        localStorage.setItem("key", JSON.stringify(data));
+    els.reviewRequirement.addEventListener("input", () => {
+      state.review.requirement = els.reviewRequirement.value;
+      render();
+    });
+
+    els.reviewScenarios.addEventListener("input", () => {
+      state.review.scenarios = els.reviewScenarios.value;
+      render();
+    });
+
+    els.reviewRisk.addEventListener("change", () => {
+      state.review.risk = els.reviewRisk.value;
+      render();
+    });
+
+    els.reviewChecklist.addEventListener("change", (event) => {
+      const checkbox = event.target.closest("input[data-gate]");
+      if (!checkbox) {
+        return;
       }
+      state.review.gates[checkbox.dataset.gate] = checkbox.checked;
+      render();
+    });
 
-      //---タスク追加---
-      addBtn.addEventListener("click", function(){
-        const text = taskInput.value.trim();
-        /*詳細説明*/
-        const description = descInput.value.trim();
-        /*優先度色分け表示*/
-        const priority = prioritySelector.value;
-        /*入力された期限を取得*/
-        const dueDate = dueDateInput.value;
-        /*カテゴリ*/
-        const category = categorySelector.value;
-        if(text === ""){
-          return;
-        }
-        if(editIndex === null){
-          data.push({
-            id: Date.now(), //一意のID
-            text, 
-            description: description || "", //詳細説明
-            completed: false, 
-            priority, 
-            dueDate, 
-            category,
-            createdAt: new Date().toISOString(),
-            updatedAt: null, //更新日
-            updated: false //作成日、更新日を判別フラグ
+    els.copyReviewBtn.addEventListener("click", () => {
+      copyText(els.reviewOutput.textContent);
+    });
 
-          });/*priority 優先度色分け表示, dueDate 期限表示,category カテゴリ追加,createdAt 作成日時*/
-        }else{
-          data[editIndex].text = text;
-          data[editIndex].description = description;
-          data[editIndex].dueDate = dueDate;
-          data[editIndex].category = category;
-          editIndex = null;
-          addBtn.textContent = "追加";
-
-        }
-        taskInput.value = "";
-        descInput.value = "";//クリア
-        dueDateInput.value = ""; //期限入力もリセット
-        saveTasks();
-        renderTasks();
+    [
+      ["serviceTarget", "target"],
+      ["serviceWorkflow", "workflow"],
+      ["serviceHourlyCost", "hourlyCost"],
+      ["serviceSavedHours", "hoursSavedPerWeek"],
+      ["serviceRevenueUplift", "revenueUpliftPerMonth"],
+      ["priceDiagnostic", "priceDiagnostic"],
+      ["pricePilot", "pricePilot"],
+      ["priceRetainer", "priceRetainer"]
+    ].forEach(([elementKey, stateKey]) => {
+      els[elementKey].addEventListener("input", () => {
+        state.services[stateKey] = els[elementKey].type === "number" ? Number(els[elementKey].value) || 0 : els[elementKey].value;
+        render();
       });
+    });
 
-      //---タスク削除---
-      function deleteTask(index){
-        data.splice(index, 1);
-        saveTasks();
-        renderTasks();
+    els.copyProposalBtn.addEventListener("click", () => {
+      copyText(els.proposalOutput.textContent);
+    });
+
+    els.addCaseBtn.addEventListener("click", () => {
+      const title = els.caseTitle.value.trim();
+      const challenge = els.caseChallenge.value.trim();
+      const solution = els.caseSolution.value.trim();
+      if (!title || !challenge || !solution) {
+        window.alert("タイトル、課題、何を変えたかは必須です。");
+        return;
       }
-
-      //---タスク編集---
-      function editTask(index,li){
-        const task = data[index];
-
-        //編集モード
-        li.classList.add("editing");
-        li.innerHTML = "";
-
-        //---編集モード表示---
-        li.innerHTML = "";
-        const textInput = document.createElement("input");
-        textInput.type = "text";
-        textInput.value = task.text;
-        textInput.className = "edit-input";
-        textInput.placeholder = "タスク名";
-
-        //---詳細説明---
-        const descInput = document.createElement("input");
-        descInput.type = "text";
-        descInput.value = task.description || "";
-        descInput.className = "edit-input";
-        descInput.placeholder = "詳細説明";
-
-        //---期限---
-        const dueInput = document.createElement("input");
-        dueInput.type = "date";
-        dueInput.value = task.dueDate || "";
-
-        //---優先度---
-        const prioritySelect = document.createElement("select");
-        const priorities = ["high","medium","low"];
-        for(let i=0;i<priorities.length;i++){
-          const p = priorities[i];
-          const opt = document.createElement("option");
-          if(p === "high"){
-            opt.textContent = "高";
-          }else if(p === "medium"){
-            opt.textContent = "中";
-          }else{
-            opt.textContent = "低";
-          }
-
-          //値を設定
-          opt.value = p;
-
-          //現在のタスクの優先度と一致していれば選択状態に
-          if(p===task.priority){
-            opt.selected = true;
-          }
-
-          //selectに追加
-          prioritySelect.appendChild(opt);
-        }
-        
-        //---カテゴリ---
-        const categorySelect = document.createElement("select");
-        for(let i=0;i<categories.length;i++){
-          const cat = categories[i];
-          const opt = document.createElement("option");
-
-          //値と表示文字を設定
-          opt.value = cat;
-          opt.textContent = cat;
-
-          //現在のカテゴリと一致していれば選択状態に
-          if(cat === task.category){
-            opt.selected = true;
-          }
-
-          //selectに追加
-          categorySelect.appendChild(opt);
-        }
-
-        //保存ボタン
-        const saveBtn = document.createElement("button");
-        saveBtn.textContent = "保存";
-        saveBtn.addEventListener("click", function(){
-          const newText = textInput.value.trim();
-          if(newText === ""){
-            alert("タスク名を入力してください");
-            return;
-          }
-          data[index].text = newText;
-          data[index].description = descInput.value;
-          data[index].dueDate = dueInput.value;
-          data[index].priority = prioritySelect.value;
-          data[index].category = categorySelect.value;
-          data[index].updatedAt = new Date().toISOString();//更新日保存
-          data[index].updated = true; //更新フラグを立てる
-          saveTasks();
-          renderTasks();
-        });
-
-        const cancelBtn = document.createElement("button");
-        cancelBtn.textContent = "キャンセル";
-        cancelBtn.addEventListener("click", function(){
-          renderTasks();
-        });
-
-        //---編集フォームを構築---
-        li.appendChild(textInput);
-        li.appendChild(descInput);
-        li.appendChild(dueInput);
-        li.appendChild(prioritySelect);
-        li.appendChild(categorySelect);
-        li.appendChild(saveBtn);
-        li.appendChild(cancelBtn);
-      }
-
-      //---完了・未完了の切り替え---
-      function toggleTask(index){
-        data[index].completed = !data[index].completed;
-        saveTasks();
-        renderTasks();
-      }
-
-      //---検索イベント---
-      searchInput.addEventListener("input", renderTasks);
-      searchClearBtn.addEventListener("click", function(){
-        searchInput.value = "";
-        renderTasks();
+      state.cases.studies.unshift({
+        id: `case-${Date.now()}`,
+        title,
+        challenge,
+        solution,
+        hoursSaved: Number(els.caseHoursSaved.value) || 0,
+        revenueImpact: Number(els.caseRevenueImpact.value) || 0,
+        visibility: els.caseVisibility.value,
+        proof: els.caseProof.value.trim() || "未記入"
       });
+      els.caseTitle.value = "";
+      els.caseChallenge.value = "";
+      els.caseSolution.value = "";
+      els.caseHoursSaved.value = "";
+      els.caseRevenueImpact.value = "";
+      els.caseProof.value = "";
+      els.caseVisibility.value = "社外公開可";
+      render();
+    });
 
-      //---フィルター変更イベント---
-      filterStatus.addEventListener("change", renderTasks);
-      //---優先順位変更イベント---
-      filterPriority.addEventListener("change", renderTasks);
-      //---フィルター変更イベント---
-      filterCategory.addEventListener("change", renderTasks);
-      //---ソート変更イベント---
-      sortSelector.addEventListener("change", renderTasks);
+    els.caseList.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action='delete-case']");
+      if (!button) {
+        return;
+      }
+      state.cases.studies = state.cases.studies.filter((study) => study.id !== button.dataset.id);
+      render();
+    });
 
-      //---初期表示---
-      /*初期表示時呼び出し*/
-      renderCategories();
-      renderTasks();
-      
+    els.exportBtn.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "independence-workbench.json";
+      link.click();
+      URL.revokeObjectURL(url);
+    });
 
-    </script>
- </body>
- </html>
+    els.resetBtn.addEventListener("click", () => {
+      if (!window.confirm("保存内容を初期化します。よろしいですか。")) {
+        return;
+      }
+      state = structuredClone(defaultState);
+      render();
+    });
 
-
-
+    render();
+  </script>
+</body>
+</html>
